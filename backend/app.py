@@ -1,10 +1,11 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template_string
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
 from sqlalchemy.ext.hybrid import hybrid_property
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape
+import folium
 
 # Load environment variables from .env file
 load_dotenv()
@@ -59,9 +60,49 @@ def get_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/')
-def hello():
-    return 'Hello, World!'
+@app.route('/map', methods=['GET'])
+def map_view():
+    sites = Site.query.all()
+    map_center = [0, 0]  # Default map center
+    site_coords = []
+
+    if sites:
+        # Get the coordinates of the first site to center the map
+        first_site = sites[0]
+        map_center = [first_site.latitude, first_site.longitude]
+
+        # Collect site coordinates
+        for site in sites:
+            if site.latitude and site.longitude:
+                site_coords.append((site.latitude, site.longitude, site.name))
+
+    # Create a Folium map
+    m = folium.Map(location=map_center, zoom_start=2)
+
+    # Add markers to the map
+    for lat, lon, name in site_coords:
+        folium.Marker(
+            location=[lat, lon],
+            popup=name,
+            icon=folium.Icon(icon="info-sign")
+        ).add_to(m)
+
+    # Generate the map HTML
+    map_html = m._repr_html_()
+
+    # Render the map in a simple HTML template
+    return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Site Map</title>
+        </head>
+        <body>
+            <h1>Site Map</h1>
+            {{ map_html|safe }}
+        </body>
+        </html>
+    """, map_html=map_html)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
