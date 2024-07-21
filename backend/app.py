@@ -40,6 +40,21 @@ class Site(db.Model):
     def __repr__(self):
         return f"<Site(id={self.id}, name={self.name}, geometry={self.geometry})>"
 
+# Define the model for the PostgreSQL view
+class N2OProjectFertilization(db.Model):
+    __tablename__ = 'n2o_project_fertilization'
+    __table_args__ = {'schema': 'test'}  # Adjust schema name if necessary
+
+    site = db.Column(db.String, primary_key=True)
+    dataset_name = db.Column(db.String, primary_key=True)
+    fertilization_date = db.Column(db.Date, primary_key=True)
+    treatment = db.Column(db.String)
+    replicate = db.Column(db.String)
+    nitrogen_rate = db.Column(db.Numeric)
+    formulation = db.Column(db.String)
+    unit = db.Column(db.String)
+    placement = db.Column(db.String)
+
 # Create database tables if they don't exist
 with app.app_context():
     db.create_all()
@@ -103,6 +118,51 @@ def map_view():
         </body>
         </html>
     """, map_html=map_html)
+
+@app.route('/fertilization_data', methods=['GET'])
+def get_fertilization_data():
+    try:
+        # Query the view
+        fertilization_records = N2OProjectFertilization.query.all()
+        return render_template_string("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Fertilization Data</title>
+            </head>
+            <body>
+                <h1>Fertilization Data</h1>
+                <table border="1">
+                    <tr>
+                        <th>Site</th>
+                        <th>Dataset</th>
+                        <th>Fertilization Date</th>
+                        <th>Treatment</th>
+                        <th>Replicate</th>
+                        <th>Nitrogen Rate</th>
+                        <th>Formulation</th>
+                        <th>Unit</th>
+                        <th>Placement</th>
+                    </tr>
+                    {% for record in fertilization_records %}
+                    <tr>
+                        <td>{{ record.site }}</td>
+                        <td>{{ record.dataset_name }}</td>
+                        <td>{{ record.fertilization_date }}</td>
+                        <td>{{ record.treatment }}</td>
+                        <td>{{ record.replicate }}</td>
+                        <td>{{ record.nitrogen_rate }}</td>
+                        <td>{{ record.formulation }}</td>
+                        <td>{{ record.unit }}</td>
+                        <td>{{ record.placement }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </body>
+            </html>
+        """, fertilization_records=fertilization_records)
+    except Exception as e:
+        return str(e)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
