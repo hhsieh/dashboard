@@ -1,7 +1,7 @@
-from flask import Flask, jsonify, render_template_string
+import os
+from flask import Flask, render_template_string, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-import os
 from sqlalchemy.ext.hybrid import hybrid_property
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape
@@ -17,7 +17,7 @@ db = SQLAlchemy(app)
 # Define the Site model with geometry column
 class Site(db.Model):
     __tablename__ = 'site'
-    __table_args__ = {'schema': 'test'}  # Adjust schema name if necessary
+    __table_args__ = {'schema': 'test'}
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
@@ -40,16 +40,16 @@ class Site(db.Model):
     def __repr__(self):
         return f"<Site(id={self.id}, name={self.name}, geometry={self.geometry})>"
 
-# Define the model for the PostgreSQL view
-class N2OProjectFertilization(db.Model):
+# Define the Fertilization model
+class Fertilization(db.Model):
     __tablename__ = 'n2o_project_fertilization'
-    __table_args__ = {'schema': 'test'}  # Adjust schema name if necessary
+    __table_args__ = {'schema': 'test'}
 
-    site = db.Column(db.String, primary_key=True)
-    dataset_name = db.Column(db.String, primary_key=True)
-    fertilization_date = db.Column(db.Date, primary_key=True)
-    treatment = db.Column(db.String)
-    replicate = db.Column(db.String)
+    site = db.Column(db.String, primary_key = True)
+    dataset_name = db.Column(db.String, primary_key = True)
+    fertilization_date = db.Column(db.Date, primary_key = True)
+    treatment = db.Column(db.String, primary_key = True)
+    replicate = db.Column(db.String, primary_key = True)
     nitrogen_rate = db.Column(db.Numeric)
     formulation = db.Column(db.String)
     unit = db.Column(db.String)
@@ -120,22 +120,56 @@ def map_view():
     """, map_html=map_html)
 
 @app.route('/fertilization_data', methods=['GET'])
-def get_fertilization_data():
-    try:
-        # Query the view
-        fertilization_records = N2OProjectFertilization.query.all()
-        return render_template_string("""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Fertilization Data</title>
-            </head>
-            <body>
-                <h1>Fertilization Data</h1>
-                <table border="1">
+def fertilization_data():
+    selected_site = request.args.get('site')
+    selected_dataset = request.args.get('dataset')
+
+    # Query to get all distinct sites
+    sites = db.session.query(Site.name).distinct().all()
+
+    # Query to get all distinct datasets for the selected site
+    datasets = []
+    if selected_site:
+        datasets = db.session.query(Fertilization.dataset_name).filter_by(site=selected_site).distinct().all()
+
+    # Query to get fertilization records based on selected site and dataset
+    records = []
+    if selected_site and selected_dataset:
+        records = db.session.query(Fertilization).filter_by(site=selected_site, dataset_name=selected_dataset).all()
+
+    return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Fertilization Data</title>
+        </head>
+        <body>
+            <h1>Select Fertilization Data</h1>
+            <form method="GET">
+                <label for="site">Select Site:</label>
+                <select id="site" name="site" onchange="this.form.submit()">
+                    <option value="">Select a site</option>
+                    {% for site in sites %}
+                    <option value="{{ site[0] }}" {% if site[0] == selected_site %}selected{% endif %}>{{ site[0] }}</option>
+                    {% endfor %}
+                </select>
+                
+                <label for="dataset">Select Dataset:</label>
+                <select id="dataset" name="dataset" onchange="this.form.submit()">
+                    <option value="">Select a dataset</option>
+                    {% for dataset in datasets %}
+                    <option value="{{ dataset[0] }}" {% if dataset[0] == selected_dataset %}selected{% endif %}>{{ dataset[0] }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            
+            {% if records %}
+            <h2>Fertilization Records</h2>
+            <table border="1">
+                <thead>
                     <tr>
                         <th>Site</th>
-                        <th>Dataset</th>
+                        <th>Dataset Name</th>
                         <th>Fertilization Date</th>
                         <th>Treatment</th>
                         <th>Replicate</th>
@@ -144,7 +178,9 @@ def get_fertilization_data():
                         <th>Unit</th>
                         <th>Placement</th>
                     </tr>
-                    {% for record in fertilization_records %}
+                </thead>
+                <tbody>
+                    {% for record in records %}
                     <tr>
                         <td>{{ record.site }}</td>
                         <td>{{ record.dataset_name }}</td>
@@ -157,12 +193,12 @@ def get_fertilization_data():
                         <td>{{ record.placement }}</td>
                     </tr>
                     {% endfor %}
-                </table>
-            </body>
-            </html>
-        """, fertilization_records=fertilization_records)
-    except Exception as e:
-        return str(e)
+                </tbody>
+            </table>
+            {% endif %}
+        </body>
+        </html>
+    """, sites=sites, datasets=datasets, selected_site=selected_site, selected_dataset=selected_dataset, records=records)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
