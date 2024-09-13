@@ -526,7 +526,7 @@ def tillage_data():
 @app.route('/fluxes', methods=['GET'])
 def fetch_fluxes_data():
     # Define the SQL query to fetch all rows from the view
-    query = text("SELECT site, dataset, sample_date, crop, gas, flux FROM test.n2o_projects_fluxes")
+    query = text("SELECT site, dataset, sample_date, crop, tillage, gas, flux FROM test.n2o_projects_fluxes")
 
     # Execute the query and fetch data
     with db.engine.connect() as conn:
@@ -534,7 +534,7 @@ def fetch_fluxes_data():
         fluxes_data = result.fetchall()
 
     # Convert to DataFrame
-    df = pd.DataFrame(fluxes_data, columns=['site', 'dataset', 'sample_date', 'crop', 'gas', 'flux'])
+    df = pd.DataFrame(fluxes_data, columns=['site', 'dataset', 'sample_date', 'crop', 'tillage', 'gas', 'flux'])
 
     # Ensure the sample_date is in datetime format
     df['sample_date'] = pd.to_datetime(df['sample_date'])
@@ -559,10 +559,13 @@ def fetch_fluxes_data():
     # Group by crop, dataset, and find start and end dates
     df_grouped_crop = df.groupby(['crop', 'dataset']).agg(start_date=('sample_date', 'min'), end_date=('sample_date', 'max')).reset_index()
 
-    # Create the Plotly Gantt chart by crop
-    fig_crop = px.timeline(df_grouped_crop, x_start='start_date', x_end='end_date', y='crop', color='dataset', title='Sample Durations by Crop and Dataset')
+    # Group by tillage, dataset, and find start and end dates
+    df_grouped_tillage = df.groupby(['tillage', 'dataset']).agg(start_date= ('sample_date', 'min'), end_date = ('sample_date', 'max')).reset_index()
 
-    fig_crop.update_traces(opacity=0.6)  # Set opacity to 60%
+    # Create the Plotly Gantt chart by crop
+    fig_crop = px.timeline(df_grouped_crop, x_start='start_date', x_end='end_date', y='dataset', color='crop', title='Sample Durations by Crop')
+
+    fig_crop.update_traces(opacity=0.3)  # Set opacity to 60%
 
     # Update the layout for better visibility
     fig_crop.update_layout(
@@ -575,6 +578,25 @@ def fetch_fluxes_data():
     # Convert the Plotly figure to HTML
     graph_html_crop = pio.to_html(fig_crop, full_html=False)
 
+    # Convert the Plotly figure to HTML
+    graph_html_crop = pio.to_html(fig_crop, full_html=False) 
+
+    ## Creat the Plotly Gantt chart by tillage
+    fig_tillage = px.timeline(df_grouped_tillage, x_start = 'start_date', x_end = 'end_date', y = 'dataset', color = 'tillage', title = 'Sample Duration by Tillage')
+
+    fig_tillage.update_traces(opacity=0.3)  # Set opacity to 60%
+
+    # Update the layout for better visibility
+    fig_tillage.update_layout(
+        xaxis_title='Date',
+        yaxis_title='Tillage',
+        height=800,  # Adjust the height as needed
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+   
+    graph_html_tillage = pio.to_html(fig_tillage, full_html=False)
+    
+
     # Render the graph in a simple HTML template
     return render_template_string("""
         <!DOCTYPE html>
@@ -584,18 +606,15 @@ def fetch_fluxes_data():
             <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
         </head>
         <body>
-            <h1>Fluxes Data Coverage by Gas and Dataset</h1>
+            <h1>Fluxes Data Coverage by Gas</h1>
             {{ graph_html_gas|safe }}
-            <h1>Fluxes Data Coverage by Crop and Dataset</h1>
+            <h1>Fluxes Data Coverage by Crop</h1>
             {{ graph_html_crop|safe }}
+                                  <h1>Fluxes Data Coverage by Tillage</h1>
+                                  {{ graph_html_tillage|safe}}
         </body>
         </html>
-    """, graph_html_gas=graph_html_gas, graph_html_crop=graph_html_crop)
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
+    """, graph_html_gas=graph_html_gas, graph_html_crop=graph_html_crop, graph_html_tillage = graph_html_tillage)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
