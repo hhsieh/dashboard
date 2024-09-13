@@ -6,6 +6,11 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape
 import folium
+import pandas as pd  # Add this line
+import plotly.express as px
+import plotly.io as pio
+from sqlalchemy import Table, MetaData
+from sqlalchemy import text  # Make sure to import text
 
 # Load environment variables from .env file
 load_dotenv()
@@ -85,6 +90,24 @@ class Tillage(db.Model):
     tillage_time = db.Column(db.String)
     comment = db.Column(db.String)
 
+class Fluxes(db.Model):
+    __tablename__ = 'n2o_projects_fluxes'
+    __table_args__ = {'schema': 'test'}
+
+    site = db.Column(db.String, primary_key = True)
+    dataset = db.Column(db.String, primary_key = True)
+    sample_date = db.Column(db.Date, primary_key = True)
+    #longitude = db.Column(db.Numeric)
+    #latitude = db.Column(db.Numeric)
+    treatment_name = db.Column(db.String, primary_key = True)
+    replicate_name = db.Column(db.String, primary_key = True)
+    crop = db.Column(db.String, primary_key = True)
+    fertilization = db.Column(db.Boolean)
+    tillage = db.Column(db.String)
+    nitrogen_inhibitor = db.Column(db.String)
+    irrigation = db.Column(db.String)
+    gas = db.Column(db.String)
+    flux = db.Column(db.Numeric)
 
 # Create database tables if they don't exist
 with app.app_context():
@@ -407,6 +430,170 @@ def tillage_data():
         </body>
         </html>
     """, sites=sites, datasets=datasets, selected_site=selected_site, selected_dataset=selected_dataset, records=records)
+
+#@app.route('/fluxes', methods=['GET'])
+#def fetch_fluxes_data():
+    # Define the SQL query to fetch all rows from the view
+#    query = text("SELECT site, dataset, sample_date, crop, gas, flux FROM test.n2o_projects_fluxes")
+
+    # Execute the query and fetch data
+#    with db.engine.connect() as conn:
+#        result = conn.execute(query)
+#        fluxes_data = result.fetchall()
+
+    # Convert to DataFrame
+#    df = pd.DataFrame(fluxes_data, columns=['site', 'dataset', 'sample_date', 'crop', 'gas', 'flux'])
+
+    # Ensure the sample_date is in datetime format
+#    df['sample_date'] = pd.to_datetime(df['sample_date'])
+
+    # Group by dataset and find start and end dates
+#    df_grouped = df.groupby('dataset').agg(start_date=('sample_date', 'min'), end_date=('sample_date', 'max')).reset_index()
+
+    # Create the Plotly Gantt chart
+#    fig = px.timeline(df_grouped, x_start='start_date', x_end='end_date', y='dataset', title='Sample Durations by Dataset and Gas')
+#    fig.update_layout(xaxis_title='Date', yaxis_title='Dataset')
+
+    # Convert the Plotly figure to HTML
+#    graph_html = pio.to_html(fig, full_html=False)
+
+    # Render the graph in a simple HTML template
+#    return render_template_string("""
+#        <!DOCTYPE html>
+#        <html>
+#        <head>
+#            <title>Fluxes Data Coverage</title>
+#            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+#        </head>
+#        <body>
+#            <h1>Fluxes Data Coverage by Date and Gas</h1>
+#            {{ graph_html|safe }}
+#        </body>
+#        </html>
+#    """, graph_html=graph_html)
+
+#@app.route('/fluxes', methods=['GET'])
+#def fetch_fluxes_data():
+    # Define the SQL query to fetch all rows from the view
+#    query = text("SELECT site, dataset, sample_date, crop, gas, flux FROM test.n2o_projects_fluxes")
+
+    # Execute the query and fetch data
+#    with db.engine.connect() as conn:
+#        result = conn.execute(query)
+#        fluxes_data = result.fetchall()
+
+    # Convert to DataFrame
+#    df = pd.DataFrame(fluxes_data, columns=['site', 'dataset', 'sample_date', 'crop', 'gas', 'flux'])
+
+    # Ensure the sample_date is in datetime format
+#    df['sample_date'] = pd.to_datetime(df['sample_date'])
+
+    # Group by dataset and find start and end dates
+#    df_grouped = df.groupby(['dataset', 'gas']).agg(start_date=('sample_date', 'min'), end_date=('sample_date', 'max')).reset_index()
+
+    # Get the list of unique gases
+#    gases = df['gas'].unique()
+
+    # Create a dictionary to hold HTML for each gas's Gantt chart
+#    gantt_charts_html = {}
+
+    # Create a Plotly Gantt chart for each gas
+#    for gas in gases:
+#        df_gas = df_grouped[df_grouped['gas'] == gas]
+#        fig = px.timeline(df_gas, x_start='start_date', x_end='end_date', y='dataset', title=f'Sample Durations for {gas}')
+#        fig.update_layout(xaxis_title='Date', yaxis_title='Dataset')
+#        gantt_charts_html[gas] = pio.to_html(fig, full_html=False)
+
+    # Render the graphs in a simple HTML template
+#    return render_template_string("""
+#        <!DOCTYPE html>
+#        <html>
+#        <head>
+#            <title>Fluxes Data Coverage</title>
+#            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+#        </head>
+#        <body>
+#            <h1>Fluxes Data Coverage by Date and Gas</h1>
+#            {% for gas, graph_html in gantt_charts_html.items() %}
+#            <h2>{{ gas }}</h2>
+#            {{ graph_html|safe }}
+#            {% endfor %}
+#        </body>
+#        </html>
+#    """, gantt_charts_html=gantt_charts_html)
+
+
+@app.route('/fluxes', methods=['GET'])
+def fetch_fluxes_data():
+    # Define the SQL query to fetch all rows from the view
+    query = text("SELECT site, dataset, sample_date, crop, gas, flux FROM test.n2o_projects_fluxes")
+
+    # Execute the query and fetch data
+    with db.engine.connect() as conn:
+        result = conn.execute(query)
+        fluxes_data = result.fetchall()
+
+    # Convert to DataFrame
+    df = pd.DataFrame(fluxes_data, columns=['site', 'dataset', 'sample_date', 'crop', 'gas', 'flux'])
+
+    # Ensure the sample_date is in datetime format
+    df['sample_date'] = pd.to_datetime(df['sample_date'])
+
+    # Group by dataset, gas, and find start and end dates
+    df_grouped_gas = df.groupby(['dataset', 'gas']).agg(start_date=('sample_date', 'min'), end_date=('sample_date', 'max')).reset_index()
+
+    # Create the Plotly Gantt chart by gas
+    fig_gas = px.timeline(df_grouped_gas, x_start='start_date', x_end='end_date', y='dataset', color='gas', title='Sample Durations by Dataset and Gas', facet_row='gas')
+
+    # Update the layout for better visibility
+    fig_gas.update_layout(
+        xaxis_title='Date',
+        yaxis_title='Dataset',
+        height=800,  # Adjust the height as needed
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    # Convert the Plotly figure to HTML
+    graph_html_gas = pio.to_html(fig_gas, full_html=False)
+
+    # Group by crop, dataset, and find start and end dates
+    df_grouped_crop = df.groupby(['crop', 'dataset']).agg(start_date=('sample_date', 'min'), end_date=('sample_date', 'max')).reset_index()
+
+    # Create the Plotly Gantt chart by crop
+    fig_crop = px.timeline(df_grouped_crop, x_start='start_date', x_end='end_date', y='crop', color='dataset', title='Sample Durations by Crop and Dataset')
+
+    fig_crop.update_traces(opacity=0.6)  # Set opacity to 60%
+
+    # Update the layout for better visibility
+    fig_crop.update_layout(
+        xaxis_title='Date',
+        yaxis_title='Crop',
+        height=800,  # Adjust the height as needed
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    # Convert the Plotly figure to HTML
+    graph_html_crop = pio.to_html(fig_crop, full_html=False)
+
+    # Render the graph in a simple HTML template
+    return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Fluxes Data Coverage</title>
+            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        </head>
+        <body>
+            <h1>Fluxes Data Coverage by Gas and Dataset</h1>
+            {{ graph_html_gas|safe }}
+            <h1>Fluxes Data Coverage by Crop and Dataset</h1>
+            {{ graph_html_crop|safe }}
+        </body>
+        </html>
+    """, graph_html_gas=graph_html_gas, graph_html_crop=graph_html_crop)
+
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
 
