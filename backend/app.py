@@ -17,6 +17,12 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@granby.kbs.msu.edu/metadata"
+
+# Secondary database configuration
+#app.config['SQLALCHEMY_BINDS'] = {
+#    'secondary': f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@granby.kbs.msu.edu/gas"
+#}
+
 db = SQLAlchemy(app)
 
 # Define the Site model with geometry column
@@ -109,9 +115,68 @@ class Fluxes(db.Model):
     gas = db.Column(db.String)
     flux = db.Column(db.Numeric)
 
+                     
+#class KBS_fluxes(db.Model):
+#    __tablename__ = 'flux_results'
+#    __table_args = {'schema': public}
+
+#    study = db.Column(db.String, primary_key = True)
+       
+
 # Create database tables if they don't exist
 with app.app_context():
     db.create_all()
+
+
+#test database connections
+@app.route('/test_db', methods = ['GET'])
+def test_db():
+    try:
+        # Create engines explicitly
+        primary_engine = db.get_engine(app)
+        secondary_engine = db.get_engine(app, bind='secondary')
+
+        # Test primary engine
+        result_primary = primary_engine.execute('SELECT * FROM test.datasets LIMIT 1').fetchone()
+
+        # Test secondary engine
+        result_secondary = secondary_engine.execute('SELECT 1').fetchone()
+
+        return f"Connected to databases successfully: Primary {result_primary[0]}, Secondary {result_secondary[0]}"
+    except Exception as e:
+        return f"Error connecting to databases: {str(e)}"
+    
+#@app.route('KBS_fluxes', methods = 'GET')
+#def get_kbs_fluxes():
+
+
+@app.route('/')
+def front_page():
+    routes = [
+        {'name': 'Test DB Connection', 'url': '/test_db'},
+        {'name': 'Data', 'url': '/data'},
+        {'name': 'Map', 'url': '/map'},
+        {'name': 'Fertilization Data', 'url': '/fertilization_data'},
+        {'name': 'Treatment Data', 'url': '/treatment'},
+        {'name': 'Tillage Data', 'url': '/tillage'},
+        {'name': 'Fluxes Data', 'url': '/fluxes'}
+    ]
+    return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Front Page</title>
+        </head>
+        <body>
+            <h1>Welcome to the Ecological Data Application</h1>
+            <ul>
+                {% for route in routes %}
+                    <li><a href="{{ route.url }}">{{ route.name }}</a></li>
+                {% endfor %}
+            </ul>
+        </body>
+        </html>
+    """, routes=routes)
 
 @app.route('/data', methods=['GET'])
 def get_data():
@@ -431,96 +496,6 @@ def tillage_data():
         </html>
     """, sites=sites, datasets=datasets, selected_site=selected_site, selected_dataset=selected_dataset, records=records)
 
-#@app.route('/fluxes', methods=['GET'])
-#def fetch_fluxes_data():
-    # Define the SQL query to fetch all rows from the view
-#    query = text("SELECT site, dataset, sample_date, crop, gas, flux FROM test.n2o_projects_fluxes")
-
-    # Execute the query and fetch data
-#    with db.engine.connect() as conn:
-#        result = conn.execute(query)
-#        fluxes_data = result.fetchall()
-
-    # Convert to DataFrame
-#    df = pd.DataFrame(fluxes_data, columns=['site', 'dataset', 'sample_date', 'crop', 'gas', 'flux'])
-
-    # Ensure the sample_date is in datetime format
-#    df['sample_date'] = pd.to_datetime(df['sample_date'])
-
-    # Group by dataset and find start and end dates
-#    df_grouped = df.groupby('dataset').agg(start_date=('sample_date', 'min'), end_date=('sample_date', 'max')).reset_index()
-
-    # Create the Plotly Gantt chart
-#    fig = px.timeline(df_grouped, x_start='start_date', x_end='end_date', y='dataset', title='Sample Durations by Dataset and Gas')
-#    fig.update_layout(xaxis_title='Date', yaxis_title='Dataset')
-
-    # Convert the Plotly figure to HTML
-#    graph_html = pio.to_html(fig, full_html=False)
-
-    # Render the graph in a simple HTML template
-#    return render_template_string("""
-#        <!DOCTYPE html>
-#        <html>
-#        <head>
-#            <title>Fluxes Data Coverage</title>
-#            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-#        </head>
-#        <body>
-#            <h1>Fluxes Data Coverage by Date and Gas</h1>
-#            {{ graph_html|safe }}
-#        </body>
-#        </html>
-#    """, graph_html=graph_html)
-
-#@app.route('/fluxes', methods=['GET'])
-#def fetch_fluxes_data():
-    # Define the SQL query to fetch all rows from the view
-#    query = text("SELECT site, dataset, sample_date, crop, gas, flux FROM test.n2o_projects_fluxes")
-
-    # Execute the query and fetch data
-#    with db.engine.connect() as conn:
-#        result = conn.execute(query)
-#        fluxes_data = result.fetchall()
-
-    # Convert to DataFrame
-#    df = pd.DataFrame(fluxes_data, columns=['site', 'dataset', 'sample_date', 'crop', 'gas', 'flux'])
-
-    # Ensure the sample_date is in datetime format
-#    df['sample_date'] = pd.to_datetime(df['sample_date'])
-
-    # Group by dataset and find start and end dates
-#    df_grouped = df.groupby(['dataset', 'gas']).agg(start_date=('sample_date', 'min'), end_date=('sample_date', 'max')).reset_index()
-
-    # Get the list of unique gases
-#    gases = df['gas'].unique()
-
-    # Create a dictionary to hold HTML for each gas's Gantt chart
-#    gantt_charts_html = {}
-
-    # Create a Plotly Gantt chart for each gas
-#    for gas in gases:
-#        df_gas = df_grouped[df_grouped['gas'] == gas]
-#        fig = px.timeline(df_gas, x_start='start_date', x_end='end_date', y='dataset', title=f'Sample Durations for {gas}')
-#        fig.update_layout(xaxis_title='Date', yaxis_title='Dataset')
-#        gantt_charts_html[gas] = pio.to_html(fig, full_html=False)
-
-    # Render the graphs in a simple HTML template
-#    return render_template_string("""
-#        <!DOCTYPE html>
-#        <html>
-#        <head>
-#            <title>Fluxes Data Coverage</title>
-#            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-#        </head>
-#        <body>
-#            <h1>Fluxes Data Coverage by Date and Gas</h1>
-#            {% for gas, graph_html in gantt_charts_html.items() %}
-#            <h2>{{ gas }}</h2>
-#            {{ graph_html|safe }}
-#            {% endfor %}
-#        </body>
-#        </html>
-#    """, gantt_charts_html=gantt_charts_html)
 
 
 @app.route('/fluxes', methods=['GET'])
